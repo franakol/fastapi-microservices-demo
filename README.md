@@ -1,17 +1,19 @@
-# FastAPI Microservices with Nginx Gateway
+# FastAPI Microservices Demo with Nginx Gateway
 
-A comprehensive demonstration of microservices architecture using FastAPI for service development and Nginx as an API gateway, orchestrated with Docker Compose.
+A production-ready demonstration of microservices architecture using FastAPI, Nginx as an API gateway, and comprehensive monitoring with Prometheus and Grafana.
 
 ## 🏗️ Architecture Overview
 
-This project demonstrates a microservices architecture with:
+This project showcases a complete microservices ecosystem with:
 
-- **User Service**: User registration and management
-- **Order Service**: Order placement and tracking
-- **Payment Service**: Payment processing simulation
-- **Nginx Gateway**: API routing, load balancing, and SSL termination
-- **PostgreSQL**: Database for each service
-- **Docker Compose**: Service orchestration
+- **User Service**: JWT authentication, user registration and profile management
+- **Order Service**: Order processing with inter-service communication
+- **Payment Service**: Payment processing with transaction management and refunds
+- **Nginx Gateway**: API routing, rate limiting, SSL termination, and documentation routing
+- **PostgreSQL**: Separate databases per service with health checks
+- **Redis**: Caching and session management
+- **Prometheus & Grafana**: Comprehensive monitoring and observability
+- **Docker Compose**: Full service orchestration with health checks
 
 ## 🚀 Quick Start
 
@@ -25,47 +27,51 @@ This project demonstrates a microservices architecture with:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/fastapi-microservices-demo.git
+git clone https://github.com/franakol/fastapi-microservices-demo.git
 cd fastapi-microservices-demo
+
+# Copy environment variables
+cp .env.example .env
+# Edit .env with your preferred values
 
 # Start all services
 docker-compose up --build
 
 # Access the services
 # API Gateway: http://localhost
-# User Service: http://localhost/users
-# Order Service: http://localhost/orders  
-# Payment Service: http://localhost/payments
+# User Service API: http://localhost/users/
+# Order Service API: http://localhost/orders/  
+# Payment Service API: http://localhost/payments/
 ```
 
 ## 📋 API Endpoints
 
-### User Service (`/users`)
-- `POST /users` - Register a new user
+### User Service (`/users/`)
+- `POST /users/register` - Register a new user
 - `POST /users/login` - Authenticate and get JWT token
 - `GET /users/me` - Get current user profile (requires auth)
-- `GET /users/{user_id}` - Get user details
-- `GET /users` - List all users
+- `GET /users/{user_id}` - Get user details (requires auth)
+- `GET /users/` - List all users (requires auth)
 
-### Order Service (`/orders`)
-- `POST /orders` - Place a new order (requires auth)
+### Order Service (`/orders/`)
+- `POST /orders/` - Place a new order (requires auth)
 - `GET /orders/{order_id}` - Get order details (requires auth)
-- `GET /orders` - List orders for current user (requires auth)
+- `GET /orders/` - List orders for current user (requires auth)
 - `PATCH /orders/{order_id}/status` - Update order status (requires auth)
 
-### Payment Service (`/payments`)
-- `POST /payments` - Process a payment
+### Payment Service (`/payments/`)
+- `POST /payments/` - Process a payment
 - `GET /payments/{payment_id}` - Get payment status (requires auth)
-- `GET /payments` - List payments for current user (requires auth)
+- `GET /payments/` - List payments for current user (requires auth)
 - `POST /payments/{payment_id}/refund` - Refund a payment (requires auth)
 
 ## 🌐 Browser Access
 
 ### API Documentation
-- **User Service Docs**: http://localhost/user-docs
-- **Order Service Docs**: http://localhost/order-docs
-- **Payment Service Docs**: http://localhost/payment-docs
-- **All Services Overview**: http://localhost/docs (redirects to user-docs)
+- **User Service Docs**: http://localhost/users/docs
+- **Order Service Docs**: http://localhost/orders/docs
+- **Payment Service Docs**: http://localhost/payments/docs
+- **Health Check**: http://localhost/health
 
 ### Gateway Endpoints
 - **HTTP**: http://localhost (port 80)
@@ -77,38 +83,70 @@ docker-compose up --build
 - **Prometheus**: http://localhost:9090
 
 ### Testing the API
+
 ```bash
-# Get gateway info
-curl http://localhost/
+# Check health
+curl http://localhost/health
 
 # Register a user
-curl -X POST http://localhost/users \
+curl -X POST "http://localhost/users/register" \
   -H "Content-Type: application/json" \
-  -d '{"email":"demo@example.com","username":"demo","full_name":"Demo User","password":"password123"}'
+  -d '{
+    "username": "testuser",
+    "email": "test@example.com",
+    "password": "testpass123"
+  }'
 
 # Login and get JWT token
-curl -X POST http://localhost/users/login \
+curl -X POST "http://localhost/users/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"demo@example.com","password":"password123"}'
+  -d '{
+    "username": "testuser",
+    "password": "testpass123"
+  }'
+
+# Create an order (use JWT token from login)
+curl -X POST "http://localhost/orders/" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "items": [
+      {"name": "Product 1", "quantity": 2, "price": 29.99},
+      {"name": "Product 2", "quantity": 1, "price": 49.99}
+    ]
+  }'
 ```
 
 ## 🏢 Project Structure
 
 ```
 fastapi-microservices-demo/
-├── services/
+├── services/                   # Microservices
 │   ├── user-service/
-│   ├── order-service/
-│   └── payment-service/
-├── nginx/
-│   ├── nginx.conf
-│   └── ssl/
-├── monitoring/
-│   ├── prometheus.yml
-│   └── grafana/
-├── docker-compose.yml
-├── docker-compose.prod.yml
-└── README.md
+│   │   ├── app/
+│   │   │   ├── main.py        # FastAPI app with custom Swagger UI
+│   │   │   ├── models.py      # SQLAlchemy models
+│   │   │   ├── schemas.py     # Pydantic schemas
+│   │   │   ├── auth.py        # JWT authentication
+│   │   │   ├── database.py    # Database configuration
+│   │   │   └── config.py      # Service configuration
+│   │   ├── Dockerfile         # Service containerization
+│   │   └── requirements.txt   # Python dependencies
+│   ├── order-service/         # Same structure as user-service
+│   └── payment-service/       # Same structure as user-service
+├── nginx/                     # API Gateway
+│   ├── nginx.conf            # Main Nginx configuration
+│   ├── conf.d/
+│   │   └── locations.conf    # Critical routing configuration
+│   └── ssl/                  # SSL certificates
+├── monitoring/               # Observability
+│   ├── prometheus.yml       # Metrics collection config
+│   └── grafana/            # Dashboards and provisioning
+├── docker-compose.yml       # Service orchestration
+├── .env.example            # Environment template
+├── init.sql                # Database initialization
+├── README.md               # This documentation
+└── blog-post.md           # Comprehensive tutorial
 ```
 
 ## 🛠️ Development
@@ -150,54 +188,100 @@ Each service uses environment variables for configuration:
 
 ### Nginx Configuration
 
-The Nginx gateway is configured for:
-- **API routing** to microservices (`/users`, `/orders`, `/payments`)
-- **Rate limiting** (10 requests/second with burst of 20)
-- **Load balancing** across service instances
-- **SSL/TLS support** with self-signed certificates
-- **Security headers** (XSS protection, CSRF, content type sniffing)
-- **CORS handling** for browser requests
-- **Health checks** via `/health` endpoint
-- **Error handling** with JSON responses
-- **Metrics protection** (access denied to `/metrics`)
+The Nginx gateway provides advanced routing and features:
 
-**SSL Configuration**: Self-signed certificates generated for HTTPS support on port 443.
+**API Documentation Routing** (Key Innovation):
+- **Exact Match Routes**: `/users/docs`, `/orders/docs`, `/payments/docs`
+- **Custom Swagger UI**: Each service serves custom HTML pointing to correct OpenAPI JSON
+- **OpenAPI JSON Routes**: Service-specific `/service/openapi.json` endpoints
+- **Browser Cache Handling**: Proper headers to prevent stale documentation
 
-## 📊 Monitoring
+**Core Features**:
+- **API Routing**: Clean paths to microservices (`/users/`, `/orders/`, `/payments/`)
+- **Rate Limiting**: 10 requests/second with burst of 20
+- **Load Balancing**: Ready for multiple service instances
+- **SSL/TLS Support**: Self-signed certificates for HTTPS
+- **Security Headers**: XSS protection, content type sniffing prevention
+- **Health Checks**: Gateway and service health monitoring
+- **Error Handling**: Consistent JSON error responses
 
-The project includes monitoring setup with:
-- **Prometheus**: Metrics collection
-- **Grafana**: Metrics visualization
-- **Health checks**: Service availability monitoring
+## 📊 Monitoring & Observability
 
-Access monitoring:
-- Grafana: http://localhost:3000
-- Prometheus: http://localhost:9090
+Comprehensive monitoring stack included:
+
+**Prometheus Metrics**:
+- Request counts and duration histograms
+- Service health and availability
+- Custom business metrics per service
+- Automatic service discovery via Docker DNS
+
+**Grafana Dashboards**:
+- Service performance visualization
+- Request rate and error tracking
+- Database connection monitoring
+- System resource utilization
+
+**Health Checks**:
+- Individual service health endpoints (`/health`)
+- Database connectivity verification
+- Redis cache availability
+- Gateway health monitoring
+
+**Access Points**:
+- **Grafana**: http://localhost:3000 (admin/admin)
+- **Prometheus**: http://localhost:9090
+- **Health Check**: http://localhost/health
 
 ## 🚀 Production Deployment
 
-### Using Docker Compose
+### Docker Compose Production
 
 ```bash
-# Production deployment
-docker-compose -f docker-compose.prod.yml up -d
+# Production deployment with optimized settings
+docker-compose -f docker-compose.yml up -d
+
+# Scale services as needed
+docker-compose up -d --scale user-service=3 --scale order-service=2
 ```
 
-### Kubernetes Deployment
+### Production Considerations
 
-Kubernetes manifests are available in the `k8s/` directory:
+**Security Enhancements**:
+- Replace self-signed certificates with valid SSL certificates
+- Use proper secrets management (Docker secrets, HashiCorp Vault)
+- Implement proper CORS policies for your domain
+- Enable Nginx access logs and security monitoring
 
-```bash
-kubectl apply -f k8s/
-```
+**Performance Optimization**:
+- Configure PostgreSQL connection pooling
+- Implement Redis caching strategies
+- Set up database read replicas for scaling
+- Configure Nginx worker processes based on CPU cores
 
-## 🔐 Security
+**Monitoring & Alerting**:
+- Set up Grafana alerting rules
+- Configure Prometheus alert manager
+- Implement distributed tracing with OpenTelemetry
+- Set up log aggregation (ELK stack or similar)
 
-- JWT-based authentication
-- Rate limiting via Nginx
-- Input validation and sanitization
-- CORS configuration
-- SSL/TLS encryption
+## 🔐 Security Features
+
+**Authentication & Authorization**:
+- JWT-based authentication with secure token handling
+- Protected endpoints requiring valid bearer tokens
+- User-specific data access controls
+
+**Network Security**:
+- Rate limiting (10 req/s with burst of 20) via Nginx
+- SSL/TLS encryption with certificate management
+- Security headers (XSS protection, content type sniffing prevention)
+- CORS configuration for cross-origin requests
+
+**Data Protection**:
+- Input validation and sanitization using Pydantic schemas
+- SQL injection prevention via SQLAlchemy ORM
+- Environment-based secrets management
+- Database connection security
 
 ## 📝 Contributing
 
@@ -221,11 +305,25 @@ For questions and support:
 ## 🎯 Learning Objectives
 
 This project demonstrates:
-- Microservices architecture patterns
-- FastAPI best practices
-- Nginx as API gateway
-- Docker containerization
-- Service communication
-- Database design for microservices
-- Monitoring and observability
-- Production deployment strategies
+
+**Microservices Architecture**:
+- Service decomposition and bounded contexts
+- Inter-service communication patterns
+- Database per service pattern
+- API gateway pattern implementation
+
+**FastAPI Best Practices**:
+- Custom Swagger UI for proxy environments
+- Pydantic schemas for data validation
+- SQLAlchemy ORM integration
+- JWT authentication implementation
+- Prometheus metrics integration
+
+**Infrastructure & DevOps**:
+- Nginx as API gateway with advanced routing
+- Docker containerization and multi-stage builds
+- Docker Compose orchestration with health checks
+- Monitoring with Prometheus and Grafana
+- Production deployment considerations
+
+**Key Innovation**: Custom Swagger UI implementation that solves the common problem of incorrect API documentation routing in microservices behind an API gateway.

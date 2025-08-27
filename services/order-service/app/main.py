@@ -6,6 +6,7 @@ Handles order placement, tracking, and management
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 import structlog
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
@@ -28,7 +29,7 @@ app = FastAPI(
     title="Order Service",
     description="Microservice for order management and tracking",
     version="1.0.0",
-    docs_url="/docs",
+    docs_url=None,  # Disable default docs
     redoc_url="/redoc",
     openapi_url="/openapi.json"
 )
@@ -111,6 +112,39 @@ async def add_process_time_header(request, call_next):
     
     response.headers["X-Process-Time"] = str(process_time)
     return response
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    """Custom Swagger UI that works with nginx proxy"""
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+<link type="text/css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css">
+<link rel="shortcut icon" href="https://fastapi.tiangolo.com/img/favicon.png">
+<title>{app.title} - Swagger UI</title>
+</head>
+<body>
+<div id="swagger-ui">
+</div>
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+<script>
+const ui = SwaggerUIBundle({{
+    url: '/orders/openapi.json',
+    dom_id: '#swagger-ui',
+    layout: 'BaseLayout',
+    deepLinking: true,
+    showExtensions: true,
+    showCommonExtensions: true,
+    oauth2RedirectUrl: window.location.origin + '/docs/oauth2-redirect',
+    presets: [
+        SwaggerUIBundle.presets.apis,
+        SwaggerUIBundle.SwaggerUIStandalonePreset
+    ],
+}})
+</script>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
 
 @app.get("/health")
 async def health_check():
