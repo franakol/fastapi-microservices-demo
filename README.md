@@ -34,15 +34,51 @@ cd fastapi-microservices-demo
 cp .env.example .env
 # Edit .env with your preferred values
 
+# Generate SSL certificates (required for HTTPS support)
+./scripts/generate-ssl.sh
+
 # Start all services
 docker-compose up --build
 
 # Access the services
-# API Gateway: http://localhost
+# API Gateway: http://localhost (HTTP) or https://localhost (HTTPS)
 # User Service API: http://localhost/users/
 # Order Service API: http://localhost/orders/  
 # Payment Service API: http://localhost/payments/
 ```
+
+### SSL Certificate Setup
+
+The application supports both HTTP and HTTPS. SSL certificates are required for HTTPS functionality but are gitignored for security reasons.
+
+#### Option 1: Generate Self-Signed Certificates (Recommended for Development)
+
+```bash
+# Create SSL directory if it doesn't exist
+mkdir -p nginx/ssl
+
+# Generate self-signed certificate
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout nginx/ssl/nginx.key \
+  -out nginx/ssl/nginx.crt \
+  -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
+```
+
+#### Option 2: Use the Provided Script
+
+```bash
+# Make the script executable and run it
+chmod +x scripts/generate-ssl.sh
+./scripts/generate-ssl.sh
+```
+
+#### Option 3: Use Your Own Certificates
+
+If you have your own SSL certificates, place them in the `nginx/ssl/` directory:
+- `nginx/ssl/nginx.crt` - SSL certificate
+- `nginx/ssl/nginx.key` - Private key
+
+**Note**: The `nginx/ssl/` directory and its contents are gitignored to prevent accidental commit of private keys.
 
 ## 📋 API Endpoints
 
