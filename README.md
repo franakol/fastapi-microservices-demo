@@ -42,18 +42,55 @@ docker-compose up --build
 
 ### User Service (`/users`)
 - `POST /users` - Register a new user
+- `POST /users/login` - Authenticate and get JWT token
+- `GET /users/me` - Get current user profile (requires auth)
 - `GET /users/{user_id}` - Get user details
 - `GET /users` - List all users
 
 ### Order Service (`/orders`)
-- `POST /orders` - Place a new order
-- `GET /orders/{order_id}` - Get order details
-- `GET /orders` - List orders for a user
+- `POST /orders` - Place a new order (requires auth)
+- `GET /orders/{order_id}` - Get order details (requires auth)
+- `GET /orders` - List orders for current user (requires auth)
+- `PATCH /orders/{order_id}/status` - Update order status (requires auth)
 
 ### Payment Service (`/payments`)
 - `POST /payments` - Process a payment
-- `GET /payments/{payment_id}` - Get payment status
-- `GET /payments` - List payments
+- `GET /payments/{payment_id}` - Get payment status (requires auth)
+- `GET /payments` - List payments for current user (requires auth)
+- `POST /payments/{payment_id}/refund` - Refund a payment (requires auth)
+
+## 🌐 Browser Access
+
+### API Documentation
+- **User Service Docs**: http://localhost/user-docs
+- **Order Service Docs**: http://localhost/order-docs
+- **Payment Service Docs**: http://localhost/payment-docs
+- **All Services Overview**: http://localhost/docs (redirects to user-docs)
+
+### Gateway Endpoints
+- **HTTP**: http://localhost (port 80)
+- **HTTPS**: https://localhost (port 443, self-signed cert)
+- **Health Check**: http://localhost/health
+
+### Monitoring Dashboards
+- **Grafana**: http://localhost:3000 (admin/admin)
+- **Prometheus**: http://localhost:9090
+
+### Testing the API
+```bash
+# Get gateway info
+curl http://localhost/
+
+# Register a user
+curl -X POST http://localhost/users \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@example.com","username":"demo","full_name":"Demo User","password":"password123"}'
+
+# Login and get JWT token
+curl -X POST http://localhost/users/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@example.com","password":"password123"}'
+```
 
 ## 🏢 Project Structure
 
@@ -114,11 +151,17 @@ Each service uses environment variables for configuration:
 ### Nginx Configuration
 
 The Nginx gateway is configured for:
-- API routing to microservices
-- SSL termination
-- Rate limiting
-- CORS handling
-- Health checks
+- **API routing** to microservices (`/users`, `/orders`, `/payments`)
+- **Rate limiting** (10 requests/second with burst of 20)
+- **Load balancing** across service instances
+- **SSL/TLS support** with self-signed certificates
+- **Security headers** (XSS protection, CSRF, content type sniffing)
+- **CORS handling** for browser requests
+- **Health checks** via `/health` endpoint
+- **Error handling** with JSON responses
+- **Metrics protection** (access denied to `/metrics`)
+
+**SSL Configuration**: Self-signed certificates generated for HTTPS support on port 443.
 
 ## 📊 Monitoring
 
