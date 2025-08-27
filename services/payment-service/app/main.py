@@ -29,7 +29,8 @@ app = FastAPI(
     description="Microservice for payment processing and transaction management",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
 
 # Configure CORS

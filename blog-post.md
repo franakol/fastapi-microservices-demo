@@ -207,12 +207,41 @@ services:
 
 ## Monitoring and Observability
 
-Observability is crucial for microservices. Our setup includes:
+The setup includes comprehensive monitoring with Prometheus and Grafana:
 
-### Prometheus Metrics
+### Prometheus Configuration
+- **Metrics Collection**: Scrapes metrics from all FastAPI services on `/metrics` endpoints
+- **Service Discovery**: Automatically discovers services via Docker DNS
+- **Retention**: Stores metrics with configurable retention periods
+- **Alerting**: Can be extended with AlertManager for notifications
+
+### Grafana Dashboards
+- **Service Metrics**: Request rates, response times, error rates
+- **Infrastructure**: CPU, memory, disk usage
+- **Custom Dashboards**: Business metrics and KPIs
+- **Access**: http://localhost:3000 (admin/admin)
+
+### Available Metrics
+Each FastAPI service exposes Prometheus metrics:
+```bash
+# View service metrics
+curl http://localhost:9090/targets  # Prometheus targets
+curl http://localhost/users/metrics  # Direct service access (if exposed)
+```
+
+### Setting Up Custom Dashboards
+1. Access Grafana at http://localhost:3000
+2. Login with admin/admin
+3. Import pre-built dashboards or create custom ones
+4. Configure data sources to point to Prometheus
+5. Set up alerts and notifications
+
+### Prometheus Metrics Implementation
 Each service exposes metrics:
 ```python
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
+import time
 
 REQUEST_COUNT = Counter('requests_total', 'Total requests', ['method', 'endpoint'])
 REQUEST_DURATION = Histogram('request_duration_seconds', 'Request duration')
@@ -224,7 +253,17 @@ async def add_metrics(request, call_next):
     REQUEST_COUNT.labels(method=request.method, endpoint=request.url.path).inc()
     REQUEST_DURATION.observe(time.time() - start_time)
     return response
+
+@app.get("/metrics")
+async def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 ```
+
+### Monitoring Best Practices
+- **Health Checks**: Each service implements `/health` endpoints
+- **Structured Logging**: Use structured logs for better observability
+- **Distributed Tracing**: Consider adding OpenTelemetry for request tracing
+- **Error Tracking**: Monitor error rates and types across services
 
 ### Health Checks
 Every service implements health checks:
@@ -286,9 +325,95 @@ docker-compose -f docker-compose.prod.yml up -d --no-deps user-service
 **Challenge**: Maintaining consistency across distributed data.
 **Solution**: Implement eventual consistency patterns and saga patterns for distributed transactions.
 
+### SSL Configuration
+
+The nginx gateway includes SSL/TLS support with self-signed certificates:
+
+```bash
+# SSL certificates are automatically generated in the nginx/ssl/ directory
+# Access via HTTPS (accept browser security warning for self-signed cert)
+curl -k https://localhost/
+
+# Test SSL configuration
+openssl s_client -connect localhost:443 -servername localhost
+```
+
 ### Testing
 **Challenge**: Testing interactions between multiple services.
 **Solution**: Use contract testing, integration tests, and test containers.
+
+## Testing the Setup
+
+### Browser Access
+Access the API documentation through your browser:
+- **Gateway Overview**: http://localhost/
+- **User Service Docs**: http://localhost/user-docs
+- **Order Service Docs**: http://localhost/order-docs  
+- **Payment Service Docs**: http://localhost/payment-docs
+
+### API Testing with curl
+
+Once everything is running, you can test the services:
+
+```bash
+# Test gateway health
+curl http://localhost/health
+
+# Register a new user
+curl -X POST http://localhost/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "demo@example.com",
+    "username": "demo",
+    "full_name": "Demo User",
+    "password": "password123"
+  }'
+
+# Login and get JWT token
+curl -X POST http://localhost/users/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "demo@example.com",
+    "password": "password123"
+  }'
+
+# Use the JWT token for authenticated requests
+TOKEN="your-jwt-token-here"
+
+# Create an order (requires authentication)
+curl -X POST http://localhost/orders \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "items": [
+      {"name": "Product 1", "quantity": 2, "price": 29.99}
+    ],
+    "total_amount": 59.98
+  }'
+
+# Process payment (requires authentication)
+curl -X POST http://localhost/payments \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "order_id": 1,
+    "amount": 59.98,
+    "payment_method": "credit_card"
+  }'
+```
+
+### SSL Testing
+
+```bash
+# Test HTTPS endpoint (accept self-signed certificate warning)
+curl -k https://localhost/
+
+# Verify SSL certificate details
+openssl s_client -connect localhost:443 -servername localhost -brief
+
+# Test SSL with specific cipher
+curl -k --tlsv1.2 https://localhost/health
+```
 
 ## Performance Optimization
 
